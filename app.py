@@ -301,7 +301,44 @@ def rel_time(value) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 class LocalStore:
     mode = "Local"
+    def projects(self):
+        db = self._read()
+        if "projects" not in db:
+            db["projects"] = [{"id": "default", "name": "Proyecto Principal", "created_at": now_iso()}]
+            self._write(db)
+        return db["projects"]
 
+    def add_project(self, data):
+        db = self._read()
+        if "projects" not in db:
+            db["projects"] = [{"id": "default", "name": "Proyecto Principal", "created_at": now_iso()}]
+        
+        # Manejamos si llega como texto o diccionario para evitar errores
+        payload = data if isinstance(data, dict) else {"name": data}
+        rec = {"id": uuid.uuid4().hex, "created_at": now_iso(), **payload}
+        db["projects"].append(rec)
+        self._write(db)
+        return rec
+
+    def get_project_members(self, project_id):
+        db = self._read()
+        members = db.get("project_members", [])
+        return [m for m in members if str(m.get("project_id")) == str(project_id)]
+
+    def invite_member(self, project_id, email, role):
+        db = self._read()
+        if "project_members" not in db:
+            db["project_members"] = []
+        rec = {
+            "id": uuid.uuid4().hex,
+            "project_id": str(project_id),
+            "user_email": email,
+            "role": role,
+            "created_at": now_iso()
+        }
+        db["project_members"].append(rec)
+        self._write(db)
+        return True
     def __init__(self, path: str | None = None):
         self.path = Path(path or os.environ.get("AGILE_DATA_FILE", "agile_data.json"))
         if not self.path.exists():
@@ -377,11 +414,6 @@ class LocalStore:
             rows = [r for r in rows if str(r.get("entity_id")) == str(entity_id)]
         rows = sorted(rows, key=lambda r: str(r.get("created_at")), reverse=True)
         return rows[:limit] if limit else rows
-
-    def projects(self):
-        db = self._read()
-        if "projects" not in db:
-            db["projects"] = [{"id": "default", "name": "Proyecto Principal"}]
         
         # ... aseguramos una lista de proyectos por defecto
     # Usuarios
@@ -402,16 +434,24 @@ class LocalStore:
 
 class SupabaseStore:
     mode = "Supabase"
+    def projects(self):
+        try:
+            res = self.c.table("projects").select("*").execute()
+            return res.data or [{"id": "default", "name": "Proyecto Principal"}]
+        except Exception:
+            return [{"id": "default", "name": "Proyecto Principal"}]
 
-    def get_projects(self):
-        return self.c.table("projects").select("*").execute().data or []
-
-    def add_project(self, name):
-        res = self.c.table("projects").insert({"name": name}).execute()
+    def add_project(self, data):
+        payload = data if isinstance(data, dict) else {"name": data}
+        res = self.c.table("projects").insert(payload).execute()
         return (res.data or [{}])[0]
 
     def get_project_members(self, project_id):
-        return self.c.table("project_members").select("*").eq("project_id", project_id).execute().data or []
+        try:
+            res = self.c.table("project_members").select("*").eq("project_id", project_id).execute()
+            return res.data or []
+        except Exception:
+            return []
 
     def invite_member(self, project_id, email, role):
         try:
