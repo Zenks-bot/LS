@@ -1314,7 +1314,7 @@ with st.sidebar:
         project_name = st.text_input("Crear nuevo proyecto", placeholder="Nombre del proyecto...")
         if st.button("➕ Crear proyecto"):
             if project_name.strip():
-                run(store.add_project, project_name.strip(), ok="Proyecto creado", log_msg=f"Proyecto creado: {project_name}")
+                run(store.add_project, {"name": project_name.strip()}, ok="Proyecto creado", log_msg=f"Proyecto creado: {project_name}")
                 st.rerun()
 
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
