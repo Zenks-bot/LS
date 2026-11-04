@@ -1494,7 +1494,7 @@ def main():
         st.session_state["project_name"] = project_options[selected_project_id]
         
         # Indicador visual claro del proyecto en curso
-        st.info( trabajando en: **{st.session_state['project_name']}**")
+        st.info(f"Trabajando en: **{st.session_state['project_name']}**")
         
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
         
