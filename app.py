@@ -1434,8 +1434,7 @@ def main():
 
     with st.sidebar:
         st.markdown('<div class="brand">⚜ Agile Core Studio<small>SCRUM · KANBAN</small></div><hr class="gold-rule">', unsafe_allow_html=True)
-        st.markdown(f"👤 **{user.get('display_name')}** (`@{user.get('username')}`)\n\nRol: **{user_role}**")
-               
+        st.markdown(f"👤 **{user.get('display_name')}** (`@{user.get('username')}`)\n\nRol: **{user_role}**")           
 Rol: **{user_role}**")
         if st.button("Cerrar sesión"):
             st.session_state.pop("user", None)
