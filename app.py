@@ -798,7 +798,31 @@ def task_dialog(framework, task=None, default_sprint=None):
                             value=t.get("description") or "")
         
         c1, c2 = st.columns(2)
-        priority = c1.selectbox("Prioridad", PRIORITIES, index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1)
+        priority = c1.selectbox(
+            "Prioridad", 
+            PRIORITIES, 
+            index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1
+        )
+        
+        # 1. Obtener la lista unificada de usuarios (DB + Sesión)
+        try:
+            users_list = get_store().get_users()
+            extracted = [
+                u.get("display_name") or u.get("username") or u.get("name")
+                for u in users_list if isinstance(u, dict)
+            ]
+            if st.session_state.get("user") and st.session_state["user"].get("display_name"):
+                extracted.append(st.session_state["user"]["display_name"])
+            
+            user_options = ["Sin asignar"] + sorted(list(set(filter(None, extracted))))
+        except Exception:
+            user_options = ["Sin asignar"]
+
+        # 2. Renderizar UN SOLO desplegable de Responsable
+        current_assignee = t.get("assignee") or "Sin asignar"
+        default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
+
+        assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx)
         
         # Selección de responsable
         current_assignee = t.get("assignee") or "Sin asignar"
