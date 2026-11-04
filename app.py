@@ -773,40 +773,76 @@ def task_dialog(framework, task=None, default_sprint=None):
     sprint_ids = [None] + [s["id"] for s in sprints if s.get("status") != "Cerrado" or s["id"] == t.get("sprint_id")]
     sprint_names = {None: "Product Backlog", **{s["id"]: s["name"] for s in sprints}}
 
+    # 1. Consultar usuarios registrados para el desplegable de responsables
+    try:
+        users_list = get_store().get_users()
+        user_options = ["Sin asignar"] + [
+            u.get("display_name") or u.get("username") 
+            for u in users_list if u.get("username") or u.get("display_name")
+        ]
+    except Exception:
+        user_options = ["Sin asignar"]
+
     with st.form("task_form", border=False):
         title = st.text_input("Título", value=t.get("title", ""))
         desc = st.text_area("Descripción" if framework == "Kanban" else "Historia / criterios de aceptación",
                             value=t.get("description") or "")
         
-        # 1. Obtener la lista de usuarios registrados para el selector
-        try:
-            users_list = get_store().get_users()
-            user_options = ["Sin asignar"] + [
-                u.get("display_name") or u.get("username") 
-                for u in users_list if u.get("username") or u.get("display_name")
-            ]
-        except Exception:
-            user_options = ["Sin asignar"]
-
         c1, c2 = st.columns(2)
         priority = c1.selectbox("Prioridad", PRIORITIES, index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1)
-
-        # 2. Seleccionar responsable activo
+        
+        # Selección de responsable
         current_assignee = t.get("assignee") or "Sin asignar"
         default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
-
         assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx)
-        assignee = None if assignee_selected == "Sin asignar" else assignee_selected
-                   
+
+        c3, c4 = st.columns(2)
+        due = c3.date_input("Fecha límite", value=parse_date(t.get("due_date")), format="YYYY-MM-DD")
+        tags = c4.text_input("Etiquetas (separadas por coma)", value=t.get("tags") or "")
+        
+        points = role = sprint_id = None
+        if framework == "Scrum":
+            c5, c6, c7 = st.columns(3)
+            current = pts(t) if pts(t) in FIBONACCI else 3
+            points = c5.select_slider("Story points", FIBONACCI, value=current)
+            role = c6.selectbox("Rol", ROLES, index=ROLES.index(t["scrum_role"]) if t.get("scrum_role") in ROLES else 0)
+            start_sprint_id = t.get("sprint_id", default_sprint)
+            sprint_id = c7.selectbox("Ubicación", sprint_ids, format_func=lambda i: sprint_names.get(i, "—"),
+                                     index=sprint_ids.index(start_sprint_id) if start_sprint_id in sprint_ids else 0)
+        
+        st.markdown("**☑ Checklist**")
+        st.caption("Escribe cada paso en la fila vacía del final y marca «Hecho» al completarlo.")
+        old_ck = task_checklist(t)
+        ck_df = pd.DataFrame({"Hecho": pd.Series([bool(i.get("done")) for i in old_ck], dtype=bool),
+                              "Elemento": pd.Series([i.get("text", "") for i in old_ck], dtype=object)})
+        ck_edit = st.data_editor(
+            ck_df, num_rows="dynamic", hide_index=True, key=f"ck_editor_{t.get('id', 'new')}",
+            column_config={"Hecho": st.column_config.CheckboxColumn("Hecho", default=False, width="small"),
+                           "Elemento": st.column_config.TextColumn("Elemento", max_chars=200, width="large")})
+        
+        submitted = st.form_submit_button("Guardar cambios" if task else "Crear", type="primary")
+
+    if task:
+        with st.expander("🕓 Historial de esta tarjeta"):
+            try:
+                render_history(get_store().activity(limit=50, entity_id=task["id"]),
+                               empty="Sin cambios registrados todavía para esta tarjeta.")
+            except Exception as exc:
+                st.caption(f"No se pudo leer el historial: {exc}")
+
     if submitted:
         if not title.strip():
             st.warning("El título es obligatorio.")
             return
+            
+        assignee_val = None if assignee_selected == "Sin asignar" else assignee_selected
+        
         payload = {"title": title.strip(), "description": desc.strip() or None, "priority": priority,
-                   "assignee": assignee.strip() or None, "due_date": str(due) if due else None, "tags": tags.strip() or None}
+                   "assignee": assignee_val, "due_date": str(due) if due else None, "tags": tags.strip() or None}
         if framework == "Scrum":
             payload.update(story_points=points, scrum_role=role, sprint_id=sprint_id)
         payload["checklist"] = merge_checklist(old_ck, ck_edit.to_dict("records"))
+        
         store = get_store()
         if task:
             changes = task_changes(task, payload, sprint_names)
