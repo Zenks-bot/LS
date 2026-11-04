@@ -1464,31 +1464,58 @@ def main():
 
     user = st.session_state["user"]
     with st.sidebar:
-        st.markdown('<div class="brand">⚜ Agile Core Studio<small>SCRUM · KANBAN</small></div><hr class="gold-rule">',
-                    unsafe_allow_html=True)
-        st.markdown(f'<div class="who"><div class="avatar">{esc(user["display_name"][:1].upper())}</div>'
-                    f'<div><div class="name">{esc(user["display_name"])}</div><div class="handle">@{esc(user["username"])}</div></div></div>',
-                    unsafe_allow_html=True)
-        if st.button("Cerrar sesión"):
-            audit("user_logout", "user", title=user["username"])
-            st.session_state.pop("user", None)
-            st.rerun()
-        if st.session_state.get("_audit_error"):
-            st.warning(f"No se pudo guardar el registro de actividad: {st.session_state['_audit_error']}. ¿Ejecutaste schema.sql?")
+        st.markdown('<div class="brand">⚜ Agile Core Studio<small>SCRUM · KANBAN</small></div><hr class="gold-rule">', unsafe_allow_html=True)
+        
+        # --- SECCIÓN DE PROYECTOS Y SELECTION ---
+        st.markdown("### 📂 Gestión de Proyectos")
+        store = get_store()
+        
+        # 1. Obtener lista de proyectos existentes
+        try:
+            projects_list = store.projects()
+        except Exception:
+            projects_list = []
+            
+        if not projects_list:
+            projects_list = [{"id": "default", "name": "Proyecto Principal"}]
+            
+        # 2. Crear un diccionario para el selector
+        project_options = {p.get("id", str(i)): p.get("name", "Sin nombre") for i, p in enumerate(projects_list)}
+        
+        # Mostrar contador total de proyectos
+        st.markdown(f"<p style='color: var(--gold-dim); font-size: 0.9rem;'>Proyectos totales: <b>{len(projects_list)}</b></p>", unsafe_allow_html=True)
+        
+        # 3. Selectbox para cambiar de proyecto activo
+        selected_project_id = st.selectbox(
+            "Proyecto activo",
+            options=list(project_options.keys()),
+            format_func=lambda x: project_options[x],
+            key="active_project_selectbox"
+        )
+        
+        # Guardar el ID del proyecto activo en session_state para filtrar tareas/sprints
+        st.session_state["project_id"] = selected_project_id
+        
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
-        page = st.radio("Módulo", ["📊 Resumen", "📌 Kanban", "🔄 Scrum"], label_visibility="collapsed", key="nav_radio")
+        
+        # 4. Formulario para crear un nuevo proyecto con indicadores claros de éxito
+        with st.form("form_crear_proyecto", clear_on_submit=True):
+            st.markdown("**Crear nuevo proyecto**")
+            nuevo_nombre = st.text_input("Nombre del proyecto", placeholder="Ej. Rediseño Web...")
+            crear_btn = st.form_submit_button("➕ Crear y unirse")
+            
+            if crear_btn:
+                if nuevo_nombre.strip():
+                    try:
+                        store.add_project({"name": nuevo_nombre.strip()})
+                        st.success(f"¡Proyecto '{nuevo_nombre.strip()}' creado con éxito!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error al crear el proyecto: {e}")
+                else:
+                    st.warning("Escribe un nombre válido para el proyecto.")
+
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
-        if store.mode == "Supabase":
-            st.caption("🟢 Conectado a Supabase")
-        else:
-            st.caption("🟡 Modo local (agile_data.json)")
-            if error:
-                st.warning(f"No se pudo conectar a Supabase: {error}")
-                if st.button("Reintentar conexión"):
-                    _build_store.clear()
-                    st.rerun()
-            else:
-                st.caption("Define SUPABASE_URL y SUPABASE_KEY para sincronizar en la nube.")
 
     show_flash()
     {"📊 Resumen": render_overview, "📌 Kanban": render_kanban, "🔄 Scrum": render_scrum}[page]()
