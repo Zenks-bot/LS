@@ -801,10 +801,11 @@ def task_dialog(framework, task=None, default_sprint=None):
         priority = c1.selectbox(
             "Prioridad", 
             PRIORITIES, 
-            index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1
+            index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1,
+            key=f"priority_select_{t.get('id', 'new')}"
         )
         
-        # 1. Obtener la lista unificada de usuarios (DB + Sesión)
+        # 1. Obtención de usuarios disponibles (Local / Supabase + Sesión actual)
         try:
             users_list = get_store().get_users()
             extracted = [
@@ -818,16 +819,16 @@ def task_dialog(framework, task=None, default_sprint=None):
         except Exception:
             user_options = ["Sin asignar"]
 
-        # 2. Renderizar UN SOLO desplegable de Responsable
+        # 2. Renderizado del selectbox con key única asignada dinámicamente según el ID de la tarjeta
         current_assignee = t.get("assignee") or "Sin asignar"
         default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
 
-        assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx)
-        
-        # Selección de responsable
-        current_assignee = t.get("assignee") or "Sin asignar"
-        default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
-        assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx)
+        assignee_selected = c2.selectbox(
+            "Responsable", 
+            user_options, 
+            index=default_idx, 
+            key=f"assignee_select_{t.get('id', 'new')}"
+        )
 
         c3, c4 = st.columns(2)
         due = c3.date_input("Fecha límite", value=parse_date(t.get("due_date")), format="YYYY-MM-DD")
