@@ -1312,15 +1312,15 @@ with st.sidebar:
         # Lógica simplificada de selección de proyecto
         # (Asegúrate de tener una tabla o lista de proyectos cargada)
         project_name = st.text_input("Crear nuevo proyecto", placeholder="Nombre del proyecto...")
+        # Asegúrate de que el bloque esté alineado con 4 espacios exactos por nivel:
         if st.button("➕ Crear proyecto"):
-    if project_name.strip():
-        try:
-            # Llamamos directamente al método del store para evitar conflictos con run()
-            store.add_project({"name": project_name.strip()})
-            st.success("¡Proyecto creado con éxito!")
-            st.rerun()
-        except Exception as e:
-            st.error(f"No se pudo crear el proyecto: {e}")
+            if project_name.strip():
+                try:
+                    store.add_project({"name": project_name.strip()})
+                    st.success("¡Proyecto creado con éxito!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"No se pudo crear el proyecto: {e}")
 
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
         
