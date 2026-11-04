@@ -417,8 +417,16 @@ class LocalStore:
     def has_users(self):
         return bool(self._read()["users"])
 
-    def get_user(self, username):
-        return next((u for u in self._read()["users"] if u.get("username") == username), None)
+    def get_users(self):
+        try:
+            res = self.c.table("app_users").select("display_name, username, role").execute()
+            if res and hasattr(res, 'data') and res.data:
+                return res.data
+            return []
+        except Exception as exc:
+            # Imprimir en consola de Streamlit para depuración
+            print(f"Error consultando usuarios en Supabase: {exc}")
+            return []
 
     def add_user(self, data):
         db = self._read()
@@ -777,7 +785,7 @@ def task_dialog(framework, task=None, default_sprint=None):
     user_role = st.session_state.get("role", "Developer")
     can_assign = user_role in ["Product Owner", "Scrum Master", "Admin"]
 
-    # 2. Consultar ÚNICAMENTE los usuarios reales de Supabase / base de datos
+    # 2. Consultar usuarios directamente de la base de datos
     extracted = []
     try:
         users_list = get_store().get_users()
@@ -789,11 +797,10 @@ def task_dialog(framework, task=None, default_sprint=None):
     except Exception:
         pass
 
-    # Asegurar que el usuario activo en sesión esté en la lista si falló la consulta
+    # Asegurar incluir al usuario activo en sesión
     if st.session_state.get("user") and st.session_state["user"].get("display_name"):
         extracted.append(st.session_state["user"]["display_name"])
 
-    # Lista limpia con opciones de la BD y sin duplicados
     user_options = ["Sin asignar"] + sorted(list(set(filter(None, extracted))))
 
     with st.form("task_form", border=False):
@@ -807,7 +814,7 @@ def task_dialog(framework, task=None, default_sprint=None):
         current_assignee = t.get("assignee") or "Sin asignar"
         default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
 
-        # Bloqueado si NO es Product Owner o Scrum Master
+        # Bloqueado para Developer, habilitado solo para Product Owner / Scrum Master / Admin
         assignee_selected = c2.selectbox(
             "Responsable", 
             user_options, 
