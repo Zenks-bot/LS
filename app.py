@@ -773,25 +773,30 @@ def task_dialog(framework, task=None, default_sprint=None):
     sprint_ids = [None] + [s["id"] for s in sprints if s.get("status") != "Cerrado" or s["id"] == t.get("sprint_id")]
     sprint_names = {None: "Product Backlog", **{s["id"]: s["name"] for s in sprints}}
 
-    # 1. Recuperar usuarios registrados de la DB o la sesión activa
+    # 1. Verificar el rol del usuario activo
+    user_role = st.session_state.get("role", "Developer")
+    can_assign = user_role in ["Product Owner", "Scrum Master", "Admin"]
+
+    # 2. Consultar TODOS los usuarios registrados de la base de datos
     extracted = []
     try:
         users_list = get_store().get_users()
         for u in users_list:
             if isinstance(u, dict):
+                # Extraer nombre visible o nombre de usuario
                 val = u.get("display_name") or u.get("username") or u.get("name")
                 if val:
                     extracted.append(val)
     except Exception:
         pass
 
-    # Agregar usuario activo si existe
+    # Incluir al usuario actual si no estaba en la lista
     if st.session_state.get("user") and st.session_state["user"].get("display_name"):
         extracted.append(st.session_state["user"]["display_name"])
 
-    # Si la lista aún está vacía, proveer miembros predeterminados de equipo
-    if not extracted:
-        extracted = ["Ana Pérez", "Juan Carlos", "Carlos Gómez", "Laura PO"]
+    # Si aún no hay usuarios registrados en la base de datos, mostrar miembros base del equipo
+    if len(set(extracted)) <= 1:
+        extracted.extend(["Juan", "Ana Pérez", "Carlos Gómez", "Laura PO"])
 
     user_options = ["Sin asignar"] + sorted(list(set(filter(None, extracted))))
 
@@ -806,7 +811,15 @@ def task_dialog(framework, task=None, default_sprint=None):
         current_assignee = t.get("assignee") or "Sin asignar"
         default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
 
-        assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx, key=f"assignee_{t.get('id', 'new')}")
+        # Si NO es Product Owner / Scrum Master, el selector se deshabilita
+        assignee_selected = c2.selectbox(
+            "Responsable", 
+            user_options, 
+            index=default_idx, 
+            key=f"assignee_{t.get('id', 'new')}",
+            disabled=not can_assign,
+            help="Solo el Product Owner o Scrum Master pueden reasignar responsables." if not can_assign else None
+        )
 
         c3, c4 = st.columns(2)
         due = c3.date_input("Fecha límite", value=parse_date(t.get("due_date")), format="YYYY-MM-DD")
@@ -869,7 +882,7 @@ def task_dialog(framework, task=None, default_sprint=None):
         else:
             payload.update(framework=framework, status="To Do")
             created = {}
-            ok = run(lambda p: created.update(store.add_task(p) or {}) , payload, ok="Tarjeta creada")
+            ok = run(lambda p: created.update(store.add_task(p) or {}), payload, ok="Tarjeta creada")
             if ok:
                 n_ck = len(payload["checklist"])
                 audit("task_create", "task", entity_id=created.get("id"), title=payload["title"], framework=framework,
