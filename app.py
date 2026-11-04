@@ -420,12 +420,8 @@ class LocalStore:
     def get_users(self):
         try:
             res = self.c.table("app_users").select("display_name, username, role").execute()
-            if res and hasattr(res, 'data') and res.data:
-                return res.data
-            return []
+            return res.data or []
         except Exception as exc:
-            # Imprimir en consola de Streamlit para depuración
-            print(f"Error consultando usuarios en Supabase: {exc}")
             return []
 
     def add_user(self, data):
