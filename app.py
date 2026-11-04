@@ -777,27 +777,23 @@ def task_dialog(framework, task=None, default_sprint=None):
     user_role = st.session_state.get("role", "Developer")
     can_assign = user_role in ["Product Owner", "Scrum Master", "Admin"]
 
-    # 2. Consultar TODOS los usuarios registrados de la base de datos
+    # 2. Consultar ÚNICAMENTE los usuarios reales de Supabase / base de datos
     extracted = []
     try:
         users_list = get_store().get_users()
         for u in users_list:
             if isinstance(u, dict):
-                # Extraer nombre visible o nombre de usuario
-                val = u.get("display_name") or u.get("username") or u.get("name")
+                val = u.get("display_name") or u.get("username")
                 if val:
                     extracted.append(val)
     except Exception:
         pass
 
-    # Incluir al usuario actual si no estaba en la lista
+    # Asegurar que el usuario activo en sesión esté en la lista si falló la consulta
     if st.session_state.get("user") and st.session_state["user"].get("display_name"):
         extracted.append(st.session_state["user"]["display_name"])
 
-    # Si aún no hay usuarios registrados en la base de datos, mostrar miembros base del equipo
-    if len(set(extracted)) <= 1:
-        extracted.extend(["Juan", "Ana Pérez", "Carlos Gómez", "Laura PO"])
-
+    # Lista limpia con opciones de la BD y sin duplicados
     user_options = ["Sin asignar"] + sorted(list(set(filter(None, extracted))))
 
     with st.form("task_form", border=False):
@@ -811,7 +807,7 @@ def task_dialog(framework, task=None, default_sprint=None):
         current_assignee = t.get("assignee") or "Sin asignar"
         default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
 
-        # Si NO es Product Owner / Scrum Master, el selector se deshabilita
+        # Bloqueado si NO es Product Owner o Scrum Master
         assignee_selected = c2.selectbox(
             "Responsable", 
             user_options, 
