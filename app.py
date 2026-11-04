@@ -1301,39 +1301,6 @@ def render_scrum():
                         st.rerun()
                     show_flash()
                     
-with st.sidebar:
-        st.markdown('<div class="brand">⚜ Agile Core Studio<small>SCRUM · KANBAN</small></div><hr class="gold-rule">', unsafe_allow_html=True)
-        
-        # --- SECCIÓN DE PROYECTOS E INVITACIONES ---
-        st.markdown("### 📂 Proyecto Activo")
-        store = get_store()
-        all_projects = store.sprints() # o método correspondiente para proyectos
-        
-        # Lógica simplificada de selección de proyecto
-        # (Asegúrate de tener una tabla o lista de proyectos cargada)
-        project_name = st.text_input("Crear nuevo proyecto", placeholder="Nombre del proyecto...")
-        # Asegúrate de que el bloque esté alineado con 4 espacios exactos por nivel:
-        if st.button("➕ Crear proyecto"):
-            if project_name.strip():
-                try:
-                    store.add_project({"name": project_name.strip()})
-                    st.success("¡Proyecto creado con éxito!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"No se pudo crear el proyecto: {e}")
-
-        st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
-        
-        # Botón para invitar usuarios
-        with st.popover("👥 Invitar usuario"):
-            st.subheader("Colaboradores")
-            invite_email = st.text_input("Correo electrónico")
-            invite_role = st.selectbox("Rol", ["Miembro", "Observador"])
-            if st.button("Enviar invitación", type="primary"):
-                # Lógica para registrar la invitación en Supabase
-                st.success(f"Invitación enviada a {invite_email}")
-
-        page = st.radio("Módulo", ["📊 Resumen", "📌 Kanban", "🔄 Scrum"], label_visibility="collapsed")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Acceso (login)
