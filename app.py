@@ -773,13 +773,22 @@ def task_dialog(framework, task=None, default_sprint=None):
     sprint_ids = [None] + [s["id"] for s in sprints if s.get("status") != "Cerrado" or s["id"] == t.get("sprint_id")]
     sprint_names = {None: "Product Backlog", **{s["id"]: s["name"] for s in sprints}}
 
-    # 1. Consultar usuarios registrados para el desplegable de responsables
+    # 1. Obtener la lista completa de usuarios (usuarios registrados + responsables existentes)
     try:
         users_list = get_store().get_users()
-        user_options = ["Sin asignar"] + [
-            u.get("display_name") or u.get("username") 
-            for u in users_list if u.get("username") or u.get("display_name")
+        extracted_users = [
+            u.get("display_name") or u.get("username") or u.get("name")
+            for u in users_list
+            if isinstance(u, dict) and (u.get("username") or u.get("display_name") or u.get("name"))
         ]
+        
+        # Agregar el usuario actual en sesión si no está en la lista
+        if st.session_state.get("user") and st.session_state["user"].get("display_name"):
+            extracted_users.append(st.session_state["user"]["display_name"])
+            
+        # Eliminar duplicados manteniendo "Sin asignar" al inicio
+        unique_users = sorted(list(set(filter(None, extracted_users))))
+        user_options = ["Sin asignar"] + unique_users
     except Exception:
         user_options = ["Sin asignar"]
 
