@@ -806,24 +806,26 @@ def task_dialog(framework, task=None, default_sprint=None):
     if task:
         with st.expander("🕓 Historial de esta tarjeta"):
                    # 1. Obtener la lista de usuarios registrados en el proyecto/sistema
-           try:
-               registered_users = get_store().get_users()
-               # Extraer nombres visibles o usernames
-               user_options = ["Sin asignar"] + [u.get("display_name") or u.get("username") for u in registered_users if u.get("username")]
-           except Exception:
-               user_options = ["Sin asignar"]
-# 2. Reemplazar el text_input de "Responsable" por un selectbox dinámico
-           c1, c2 = st.columns(2)
-           priority = c1.selectbox("Prioridad", PRIORITIES, index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1)
+          # Obtener lista de usuarios registrados
+        try:
+            users_list = get_store().get_users()
+            user_options = ["Sin asignar"] + [
+                u.get("display_name") or u.get("username") 
+                for u in users_list if u.get("username") or u.get("display_name")
+            ]
+        except Exception:
+            user_options = ["Sin asignar"]
 
-# Determinar el índice actual del responsable
-           current_assignee = t.get("assignee") or "Sin asignar"
-           assignee_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
+        c1, c2 = st.columns(2)
+        priority = c1.selectbox("Prioridad", PRIORITIES, index=PRIORITIES.index(t["priority"]) if t.get("priority") in PRIORITIES else 1)
 
-           assignee = c2.selectbox("Responsable", user_options, index=assignee_idx)
-            
+        # Seleccionar responsable actual si existe en la lista
+        current_assignee = t.get("assignee") or "Sin asignar"
+        default_idx = user_options.index(current_assignee) if current_assignee in user_options else 0
+
+        assignee_selected = c2.selectbox("Responsable", user_options, index=default_idx)
+        assignee = None if assignee_selected == "Sin asignar" else assignee_selected
                    
-
     if submitted:
         if not title.strip():
             st.warning("El título es obligatorio.")
