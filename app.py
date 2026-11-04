@@ -1466,11 +1466,11 @@ def main():
     with st.sidebar:
         st.markdown('<div class="brand">⚜ Agile Core Studio<small>SCRUM · KANBAN</small></div><hr class="gold-rule">', unsafe_allow_html=True)
         
-        # --- SECCIÓN DE PROYECTOS Y SELECTION ---
+        # --- SECCIÓN ÚNICA DE GESTIÓN DE PROYECTOS ---
         st.markdown("### 📂 Gestión de Proyectos")
         store = get_store()
         
-        # 1. Obtener lista de proyectos existentes
+        # 1. Obtener proyectos de la base de datos (Supabase o Local)
         try:
             projects_list = store.projects()
         except Exception:
@@ -1479,44 +1479,47 @@ def main():
         if not projects_list:
             projects_list = [{"id": "default", "name": "Proyecto Principal"}]
             
-        # 2. Crear un diccionario para el selector
-        project_options = {p.get("id", str(i)): p.get("name", "Sin nombre") for i, p in enumerate(projects_list)}
+        # 2. Selector de Proyecto Activo
+        project_options = {str(p.get("id", i)): p.get("name", "Sin nombre") for i, p in enumerate(projects_list)}
         
-        # Mostrar contador total de proyectos
-        st.markdown(f"<p style='color: var(--gold-dim); font-size: 0.9rem;'>Proyectos totales: <b>{len(projects_list)}</b></p>", unsafe_allow_html=True)
-        
-        # 3. Selectbox para cambiar de proyecto activo
         selected_project_id = st.selectbox(
-            "Proyecto activo",
+            "🗂️ Proyecto Activo",
             options=list(project_options.keys()),
             format_func=lambda x: project_options[x],
             key="active_project_selectbox"
         )
         
-        # Guardar el ID del proyecto activo en session_state para filtrar tareas/sprints
+        # Guardar en la sesión el ID y el Nombre del proyecto activo para usarlo en la app
         st.session_state["project_id"] = selected_project_id
+        st.session_state["project_name"] = project_options[selected_project_id]
+        
+        # Indicador visual claro del proyecto en curso
+        st.info( trabajando en: **{st.session_state['project_name']}**")
         
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
         
-        # 4. Formulario para crear un nuevo proyecto con indicadores claros de éxito
-        with st.form("form_crear_proyecto", clear_on_submit=True):
-            st.markdown("**Crear nuevo proyecto**")
-            nuevo_nombre = st.text_input("Nombre del proyecto", placeholder="Ej. Rediseño Web...")
-            crear_btn = st.form_submit_button("➕ Crear y unirse")
+        # 3. Formulario único para crear nuevo proyecto
+        with st.form("form_crear_proyecto_unico", clear_on_submit=True):
+            st.markdown("**➕ Crear nuevo proyecto**")
+            nuevo_nombre = st.text_input("Nombre", placeholder="Ej. Rediseño Web...")
+            crear_btn = st.form_submit_button("Crear proyecto")
             
             if crear_btn:
                 if nuevo_nombre.strip():
                     try:
                         store.add_project({"name": nuevo_nombre.strip()})
-                        st.success(f"¡Proyecto '{nuevo_nombre.strip()}' creado con éxito!")
+                        st.success(f"¡Creado con éxito!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error al crear el proyecto: {e}")
+                        st.error(f"Error: {e}")
                 else:
-                    st.warning("Escribe un nombre válido para el proyecto.")
+                    st.warning("Escribe un nombre.")
 
         st.markdown('<hr class="gold-rule">', unsafe_allow_html=True)
-
+        
+        # Navegación principal limpia
+        page = st.radio("Módulo", ["📊 Resumen", "📌 Kanban", "🔄 Scrum"], label_visibility="collapsed", key="nav_radio_principal")
+               
     show_flash()
     {"📊 Resumen": render_overview, "📌 Kanban": render_kanban, "🔄 Scrum": render_scrum}[page]()
     
